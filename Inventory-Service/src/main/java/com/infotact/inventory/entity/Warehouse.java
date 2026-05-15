@@ -14,6 +14,16 @@ import lombok.Data;
 @Entity
 @Table(name = "warehouses")
 public class Warehouse {
+	@Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+	
+	private String name;
+    private String location;
+
+    @OneToMany(mappedBy = "warehouse", cascade = CascadeType.ALL)
+    private List<StorageBin> bins;
+
 	public Long getId() {
 		return id;
 	}
@@ -45,14 +55,6 @@ public class Warehouse {
 	public void setBins(List<StorageBin> bins) {
 		this.bins = bins;
 	}
-
-	@Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-	
-	private String name;
-    private String location;
-
-    @OneToMany(mappedBy = "warehouse", cascade = CascadeType.ALL)
-    private List<StorageBin> bins;
+    
+    
 }

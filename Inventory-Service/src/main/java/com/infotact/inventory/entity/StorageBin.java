@@ -1,5 +1,7 @@
 package com.infotact.inventory.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -12,6 +14,17 @@ import lombok.Data;
 @Entity
 @Table(name = "storage_bins")
 public class StorageBin {
+	@Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    
+    private String binCode; // e.g., ZONE-A-ROW-1-BIN-5
+
+    @ManyToOne
+    @JoinColumn(name = "warehouse_id")
+    @JsonIgnore
+    private Warehouse warehouse;
+
 	public Long getId() {
 		return id;
 	}
@@ -35,14 +48,6 @@ public class StorageBin {
 	public void setWarehouse(Warehouse warehouse) {
 		this.warehouse = warehouse;
 	}
-
-	@Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
     
-    private String binCode; // e.g., ZONE-A-ROW-1-BIN-5
-
-    @ManyToOne
-    @JoinColumn(name = "warehouse_id")
-    private Warehouse warehouse;
+    
 }

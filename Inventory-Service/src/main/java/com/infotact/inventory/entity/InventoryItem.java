@@ -13,6 +13,20 @@ import lombok.Data;
 @Table(name="inventory_items")
 public class InventoryItem {
 
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private long id;
+	
+	@ManyToOne
+	@JoinColumn(name="product_id")
+	private Product product;
+	
+	@ManyToOne
+    @JoinColumn(name = "bin_id")
+    private StorageBin storageBin;
+
+    private Integer quantity;
+
 	public long getId() {
 		return id;
 	}
@@ -44,18 +58,7 @@ public class InventoryItem {
 	public void setQuantity(Integer quantity) {
 		this.quantity = quantity;
 	}
-
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
-	
-	@ManyToOne
-	@JoinColumn(name="product_id")
-	private Product product;
-	
-	@ManyToOne
-    @JoinColumn(name = "bin_id")
-    private StorageBin storageBin;
-
-    private Integer quantity;
+    
+    
 }
+

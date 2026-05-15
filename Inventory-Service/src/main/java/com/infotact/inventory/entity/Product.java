@@ -11,6 +11,13 @@ import lombok.Data;
 @Table(name="products")
 public class Product {
 
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private long id;
+	
+	private String sku;
+	private String name;
+	private String description;
 	public long getId() {
 		return id;
 	}
@@ -35,11 +42,6 @@ public class Product {
 	public void setDescription(String description) {
 		this.description = description;
 	}
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private long id;
 	
-	private String sku;
-	private String name;
-	private String description;
+	
 }
