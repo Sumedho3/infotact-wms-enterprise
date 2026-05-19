@@ -4,4 +4,4 @@ bin/
 .project
 .classpath
 .factorypath
-.metadata/
+.metadata/.idea/
