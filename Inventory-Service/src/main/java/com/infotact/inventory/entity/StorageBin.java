@@ -31,6 +31,16 @@ public class StorageBin {
     
     @OneToMany(mappedBy = "storageBin", fetch = FetchType.LAZY)
     private List<InventoryItem> inventoryItems;
+    
+    private String allowedCategory;
+
+	public String getAllowedCategory() {
+		return allowedCategory;
+	}
+
+	public void setAllowedCategory(String allowedCategory) {
+		this.allowedCategory = allowedCategory;
+	}
 
 	public List<InventoryItem> getInventoryItems() {
 		return inventoryItems;
