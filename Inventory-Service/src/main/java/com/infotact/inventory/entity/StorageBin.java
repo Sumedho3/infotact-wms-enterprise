@@ -30,6 +30,7 @@ public class StorageBin {
     private Warehouse warehouse;
     
     @OneToMany(mappedBy = "storageBin", fetch = FetchType.LAZY)
+    @JsonIgnore
     private List<InventoryItem> inventoryItems;
     
     private String allowedCategory;
