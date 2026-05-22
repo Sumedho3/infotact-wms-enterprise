@@ -1,30 +1,73 @@
 package com.infotact.inventory.service;
 
-import java.util.List;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
+import com.infotact.inventory.entity.Product;
 import com.infotact.inventory.entity.StorageBin;
 import com.infotact.inventory.repository.StorageBinRepository;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class PutawayService {
 
-    @Autowired
-    private StorageBinRepository storageBinRepository;
+    private final StorageBinRepository binRepository;
 
-    public Long findAvailableBin() {
+    @Value("${wms.config.global-max-bin-capacity}")
+    private int maxBinCapacity;
 
-        List<StorageBin> bins = storageBinRepository.findAll();
+    public PutawayService(StorageBinRepository binRepository) {
+        this.binRepository = binRepository;
+    }
 
-        if (bins.isEmpty()) {
-            throw new RuntimeException("No storage bins available");
+    public StorageBin findAvailableBin(
+            Long warehouseId,
+            Integer incomingQuantity,
+            Product product) {
+
+        List<StorageBin> allBins = binRepository.findAll();
+
+        String productCategory = product.getCategory();
+
+        for (StorageBin bin : allBins) {
+
+            // Rule 1: Match Warehouse Location
+            if (bin.getWarehouse() != null &&
+                    bin.getWarehouse().getId().equals(warehouseId)) {
+
+                // Rule 2: Match Zone/Category Restrictions
+                if (bin.getAllowedCategory() != null &&
+                        bin.getAllowedCategory()
+                                .equalsIgnoreCase(productCategory)) {
+
+                    // Rule 3: Check Remaining Space Capacity
+                    int currentBinStock = 0;
+
+                    if (bin.getInventoryItems() != null) {
+
+                        currentBinStock =
+                                bin.getInventoryItems()
+                                        .stream()
+                                        .mapToInt(item ->
+                                                item.getQuantity())
+                                        .sum();
+                    }
+
+                    if (currentBinStock +
+                            incomingQuantity <= maxBinCapacity) {
+
+                        return bin;
+                    }
+                }
+            }
         }
 
-        // For now choose the first available bin
-        StorageBin selectedBin = bins.get(0);
-
-        return selectedBin.getId();
+        throw new RuntimeException(
+                "Putaway Error: No available bins found for category '"
+                        + productCategory
+                        + "' with space for "
+                        + incomingQuantity
+                        + " units in warehouse ID: "
+                        + warehouseId);
     }
 }

@@ -4,6 +4,7 @@ public class ReceivingRequestDTO {
 
     private Long productId;
     private Integer quantity;
+    private Long warehouseId;
 
     public Long getProductId() {
         return productId;
@@ -19,5 +20,13 @@ public class ReceivingRequestDTO {
 
     public void setQuantity(Integer quantity) {
         this.quantity = quantity;
+    }
+
+    public Long getWarehouseId() {
+        return warehouseId;
+    }
+
+    public void setWarehouseId(Long warehouseId) {
+        this.warehouseId = warehouseId;
     }
 }

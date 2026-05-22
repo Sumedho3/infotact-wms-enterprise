@@ -1,13 +1,17 @@
 package com.infotact.inventory.entity;
 
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Data;
 
@@ -24,6 +28,28 @@ public class StorageBin {
     @JoinColumn(name = "warehouse_id")
     @JsonIgnore
     private Warehouse warehouse;
+    
+    @OneToMany(mappedBy = "storageBin", fetch = FetchType.LAZY)
+    @JsonIgnore
+    private List<InventoryItem> inventoryItems;
+    
+    private String allowedCategory;
+
+	public String getAllowedCategory() {
+		return allowedCategory;
+	}
+
+	public void setAllowedCategory(String allowedCategory) {
+		this.allowedCategory = allowedCategory;
+	}
+
+	public List<InventoryItem> getInventoryItems() {
+		return inventoryItems;
+	}
+
+	public void setInventoryItems(List<InventoryItem> inventoryItems) {
+		this.inventoryItems = inventoryItems;
+	}
 
 	public Long getId() {
 		return id;
