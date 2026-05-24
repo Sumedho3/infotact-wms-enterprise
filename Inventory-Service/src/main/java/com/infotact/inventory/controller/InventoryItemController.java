@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.infotact.inventory.dto.InventoryRequestDTO;
+import com.infotact.inventory.dto.InventoryResponseDTO;
 import com.infotact.inventory.entity.InventoryItem;
 import com.infotact.inventory.repository.InventoryItemRepository;
 import com.infotact.inventory.service.InventoryItemService;
@@ -28,10 +29,20 @@ public class InventoryItemController {
 	}
 
 	@PostMapping
-    public ResponseEntity<InventoryItem> create(@RequestBody InventoryRequestDTO requestdto)
-	{ 
-		InventoryItem savedItem = service.createInventory(requestdto);
-	    return ResponseEntity.ok(savedItem);
+	public ResponseEntity<InventoryResponseDTO> createInventory(@RequestBody InventoryRequestDTO dto) {
+	    // 1. Save the inventory via service layer as usual
+	    InventoryItem savedItem = service.createInventory(dto);
+	    
+	    // 2. Manually map the entity fields into our clean Response DTO
+	    InventoryResponseDTO response = new InventoryResponseDTO();
+	    response.setId(savedItem.getId());
+	    response.setQuantity(savedItem.getQuantity());
+	    response.setProductId(savedItem.getProduct().getId());
+	    response.setProductName(savedItem.getProduct().getName());
+	    response.setBinCode(savedItem.getStorageBin().getBinCode());
+	    
+	    // 3. Return the safe DTO instead of the entity!
+	    return ResponseEntity.ok(response);
 	}
 
     @GetMapping

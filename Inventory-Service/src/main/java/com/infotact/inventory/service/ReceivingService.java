@@ -1,7 +1,7 @@
-package com.infotact.wms.inventory.service;
+package com.infotact.inventory.service;
 
-import com.infotact.wms.inventory.dto.InventoryResponseDTO;
-import com.infotact.wms.inventory.dto.ReceivingRequestDTO;
+import com.infotact.inventory.dto.InventoryResponseDTO;
+import com.infotact.inventory.dto.ReceivingRequestDTO;
 
 public interface ReceivingService {
 

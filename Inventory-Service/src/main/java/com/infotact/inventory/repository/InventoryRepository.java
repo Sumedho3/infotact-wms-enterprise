@@ -1,6 +1,6 @@
-package com.infotact.wms.inventory.repository;
+package com.infotact.inventory.repository;
 
-import com.infotact.wms.inventory.entity.InventoryItem;
+import com.infotact.inventory.entity.InventoryItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
