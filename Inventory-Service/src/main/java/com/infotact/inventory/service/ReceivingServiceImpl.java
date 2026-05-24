@@ -1,12 +1,12 @@
-package com.infotact.wms.inventory.service;
+package com.infotact.inventory.service;
 
-import com.infotact.wms.inventory.dto.InventoryResponseDTO;
-import com.infotact.wms.inventory.dto.ReceivingRequestDTO;
-import com.infotact.wms.inventory.entity.InventoryItem;
-import com.infotact.wms.inventory.entity.Product;
-import com.infotact.wms.inventory.entity.StorageBin;
-import com.infotact.wms.inventory.repository.InventoryRepository;
-import com.infotact.wms.inventory.repository.ProductRepository;
+import com.infotact.inventory.dto.InventoryResponseDTO;
+import com.infotact.inventory.dto.ReceivingRequestDTO;
+import com.infotact.inventory.entity.InventoryItem;
+import com.infotact.inventory.entity.Product;
+import com.infotact.inventory.entity.StorageBin;
+import com.infotact.inventory.repository.InventoryRepository;
+import com.infotact.inventory.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
