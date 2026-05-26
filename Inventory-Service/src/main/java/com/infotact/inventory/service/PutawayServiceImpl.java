@@ -3,11 +3,13 @@ package com.infotact.inventory.service;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import com.infotact.inventory.entity.Product;
 import com.infotact.inventory.entity.StorageBin;
 import com.infotact.inventory.repository.StorageBinRepository;
 
+@Service
 public class PutawayServiceImpl implements PutawayService{
 	
 	private final StorageBinRepository binRepository;
