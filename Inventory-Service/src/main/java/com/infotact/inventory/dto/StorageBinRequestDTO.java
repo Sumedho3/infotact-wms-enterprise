@@ -17,7 +17,8 @@ public class StorageBinRequestDTO {
 		this.allowedCategory = allowedCategory;
 		this.warehouseId = warehouseId;
 	}
-
+	public StorageBinRequestDTO() {
+	}
 
 	public String getZone() {
 		return zone;
