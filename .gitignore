@@ -5,3 +5,5 @@ bin/
 .classpath
 .factorypath
 .metadata/
+.idea/
+*.iml
