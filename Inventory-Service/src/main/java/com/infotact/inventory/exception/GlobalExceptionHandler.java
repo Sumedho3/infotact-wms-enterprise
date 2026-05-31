@@ -30,6 +30,18 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errors, HttpStatus.BAD_REQUEST);
     }
 
+    @ExceptionHandler(InsufficientStockException.class)
+public ResponseEntity<Map<String, String>> handleInsufficientStock(
+        InsufficientStockException ex) {
+
+    Map<String, String> error = new HashMap<>();
+
+    error.put("fulfillment_status", "REJECTED");
+    error.put("reason", ex.getMessage());
+
+    return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+}
+
     /**
      * Catches custom runtime exceptions (like "Product not found" or "No available bins")
      */
