@@ -38,7 +38,7 @@ public class ReceivingServiceImpl implements ReceivingService{
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new RuntimeException("Receiving Error: Product ID " + request.getProductId() + " does not exist in master catalog."));
 
-        // Step 2: Execute Teammate A's algorithm to find a safe, available StorageBin
+        // Step 2: Execute  algorithm to find a safe, available StorageBin
         StorageBin targetBin = putawayService.findAvailableBin(
                 request.getWarehouseId(),
                 request.getQuantity(),
