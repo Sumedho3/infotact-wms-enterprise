@@ -1,5 +1,7 @@
 package com.infotact.inventory.service;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import com.infotact.inventory.dto.WarehouseRequestDTO;
@@ -23,6 +25,11 @@ public class WarehouseServiceImpl implements WarehouseService{
 	    warehouse.setName(dto.getName());
 	    warehouse.setLocation(dto.getLocation());
 	    return repository.save(warehouse);
+	}
+
+	@Override
+	public List<Warehouse> getAllWarehouses() {
+		return repository.findAll();
 	}
 
 }

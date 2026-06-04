@@ -35,8 +35,8 @@ public class WarehouseController {
     }
 
     @GetMapping
-    public List<Warehouse> getAllWarehouses() {
-        return repository.findAll();
+    public List<Warehouse> getWarehouses() {
+        return service.getAllWarehouses();
     }
 
 }
