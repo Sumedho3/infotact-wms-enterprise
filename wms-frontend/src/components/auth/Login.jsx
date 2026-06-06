@@ -1,37 +1,39 @@
 import React, { useState } from 'react';
 import axiosClient from '../../api/axiosClient';
+import { useAuth } from './AuthContext'; // 👈 UPDATED: Import the global auth engine hook
 
 const Login = () => {
-    // 1. Define component state hooks to manage user inputs and UI alerts
+    const { loginService } = useAuth(); // 👈 UPDATED: Grab the login action from our global engine
+    
+    // Define component state hooks to manage user inputs and UI alerts
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // 2. Handle the form submission event
+    // Handle the form submission event
     const handleLoginSubmit = async (e) => {
         e.preventDefault(); // Prevents standard browser page reload on submit
         setError('');
         setLoading(true);
 
         try {
-            // 3. Post data to your Spring Boot login controller endpoint via centralized client
+            // Post data to your Spring Boot login controller endpoint
             const response = await axiosClient.post('/api/auth/login', {
                 username: username,
                 password: password
             });
 
-            // 4. Extract token from response payload (assuming backend returns { token: "..." })
+            // Extract token from response payload
             const jwtToken = response.data.token;
 
             if (jwtToken) {
-                // 5. Store the token in local storage (This triggers your Day 2 Interceptor automatically!)
-                localStorage.setItem('token', jwtToken);
-                alert('Login Successful! Token saved securely.');
-                // You can route the user to /dashboard here using a router later
+                // 👈 UPDATED: Instead of using raw localStorage here, we pass it to our global engine!
+                loginService(jwtToken, username); 
+                alert('Login processed via global Auth Service!');
             }
         } catch (err) {
-            // 6. Handle bad credentials (401) or network failures gracefully
+            // Handle bad credentials (401) or network failures gracefully
             if (err.response && err.response.status === 401) {
                 setError('Invalid username or password. Please try again.');
             } else {
@@ -42,7 +44,7 @@ const Login = () => {
         }
     };
 
-    // 7. Render a clean HTML5 UI form styled standard CSS layouts
+    // Render the UI form
     return (
         <div style={styles.container}>
             <div style={styles.card}>
@@ -88,7 +90,7 @@ const Login = () => {
     );
 };
 
-// Clean embedded styling configuration object
+// Embedded styling configuration object
 const styles = {
     container: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh', fontFamily: 'Arial, sans-serif' },
     card: { width: '360px', padding: '40px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', background: '#fff' },
