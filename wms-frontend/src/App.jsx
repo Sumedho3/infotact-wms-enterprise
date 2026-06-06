@@ -2,12 +2,13 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
-import Login from './components/auth/Login' // 👈 1. Import your brand new login card component
+import Login from './components/auth/Login' 
+import { AuthProvider } from './components/auth/AuthContext' 
 import './App.css'
 
 function App() {
   return (
-    <>
+    <AuthProvider> 
       <section id="center">
         <div className="hero">
           <img src={heroImg} className="base" width="170" height="179" alt="" />
@@ -15,7 +16,7 @@ function App() {
           <img src={viteLogo} className="vite" alt="Vite logo" />
         </div>
         
-        {/* 👇 2. Render your Login engine directly in the center panel layout */}
+        {/* Render your Login engine directly in the center panel layout */}
         <div style={{ margin: '20px 0' }}>
           <Login />
         </div>
@@ -106,7 +107,7 @@ function App() {
 
       <div className="ticks"></div>
       <section id="spacer"></section>
-    </>
+    </AuthProvider> 
   )
 }
 
