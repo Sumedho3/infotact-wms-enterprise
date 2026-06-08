@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react'; // 👈 MODIFICATION 1: Bring in useState for dynamic data updates
 import { useAuth } from '../auth/AuthContext';
+import BarcodeScanner from './BarcodeScanner'; // 👈 MODIFICATION 2: Import your fresh scanning engine
 
 /**
  * WarehouseDashboard Component
@@ -8,12 +9,31 @@ import { useAuth } from '../auth/AuthContext';
 const WarehouseDashboard = () => {
     const { user, logoutService } = useAuth();
 
-    // Mock data tracking counters to satisfy WMS presentation layout requirements
-    const metrics = [
-        { id: 1, label: 'Total Tracked Products', count: '1,240', color: '#007bff' },
-        { id: 2, label: 'Active Storage Bins', count: '42 Bins', color: '#28a745' },
-        { id: 3, label: 'Fulfillment Exceptions', count: '0 Alerts', color: '#dc3545' }
-    ];
+    // 👈 MODIFICATION 3: Convert the mock table records into a dynamic state array
+    const [inventoryItems, setInventoryItems] = useState([
+        { id: 1001, sku: 'PROD-SKU-2026', bin: 'BIN-A (Row 4)', qty: '15 Units', status: 'OPTIMAL' },
+        { id: 1002, sku: 'PROD-SKU-2026', bin: 'BIN-B (Row 4)', qty: '10 Units', status: 'OPTIMAL' }
+    ]);
+
+    // 👈 MODIFICATION 4: Convert your layout counter into a state integer
+    const [totalProducts, setTotalProducts] = useState(1240);
+
+    // 👈 MODIFICATION 5: Add the processing callback to catch laser-scanned data tokens
+    const handleBarcodeDetected = (scannedSku) => {
+        const scannedRowBlueprint = {
+            id: Math.floor(Math.random() * 9000) + 1000, // Generate a random matching 4-digit product ID
+            sku: scannedSku,
+            bin: 'BIN-RECEIVING (Dock 1)',
+            qty: '1 Unit',
+            status: 'NEW INTAKE'
+        };
+
+        // Prepend the new scanned item directly to the top of our table list
+        setInventoryItems(prevItems => [scannedRowBlueprint, ...prevItems]);
+        
+        // Increment our warehouse metrics counter panel
+        setTotalProducts(prevCount => prevCount + 1);
+    };
 
     return (
         <div style={styles.dashboardContainer}>
@@ -28,14 +48,25 @@ const WarehouseDashboard = () => {
                 </button>
             </header>
 
+            {/* 👈 MODIFICATION 6: Mount the hardware interceptor engine right above your metrics panel */}
+            <BarcodeScanner onScanSuccess={handleBarcodeDetected} />
+
             {/* Metrics Counter Rows */}
             <section style={styles.metricsGrid}>
-                {metrics.map(metric => (
-                    <div key={metric.id} style={styles.metricCard}>
-                        <h3 style={styles.metricLabel}>{metric.label}</h3>
-                        <p style={{ ...styles.metricCount, color: metric.color }}>{metric.count}</p>
-                    </div>
-                ))}
+                <div style={styles.metricCard}>
+                    <h3 style={styles.metricLabel}>Total Tracked Products</h3>
+                    {/* Render your dynamic state counter */}
+                    <p style={{ ...styles.metricCount, color: '#007bff' }}>{totalProducts.toLocaleString()}</p>
+                </div>
+                <div style={styles.metricCard}>
+                    <h3 style={styles.metricLabel}>Active Storage Bins</h3>
+                    {/* Render your dynamic array length tracking row layout */}
+                    <p style={{ ...styles.metricCount, color: '#28a745' }}>{inventoryItems.length} Bins</p>
+                </div>
+                <div style={styles.metricCard}>
+                    <h3 style={styles.metricLabel}>Fulfillment Exceptions</h3>
+                    <p style={{ ...styles.metricCount, color: '#dc3545' }}>0 Alerts</p>
+                </div>
             </section>
 
             {/* Main Operational Data Panel Mockup */}
@@ -56,20 +87,22 @@ const WarehouseDashboard = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr style={styles.tr}>
-                            <td style={styles.td}>1001</td>
-                            <td style={styles.td}><strong>PROD-SKU-2026</strong></td>
-                            <td style={styles.td}>BIN-A (Row 4)</td>
-                            <td style={styles.td}>15 Units</td>
-                            <td style={styles.td}><span style={styles.statusBadgeGreen}>OPTIMAL</span></td>
-                        </tr>
-                        <tr style={styles.tr}>
-                            <td style={styles.td}>1002</td>
-                            <td style={styles.td}><strong>PROD-SKU-2026</strong></td>
-                            <td style={styles.td}>BIN-B (Row 4)</td>
-                            <td style={styles.td}>10 Units</td>
-                            <td style={styles.td}><span style={styles.statusBadgeGreen}>OPTIMAL</span></td>
-                        </tr>
+                        {/* 👈 MODIFICATION 7: Map across state array entries dynamically instead of using hardcoded rows */}
+                        {inventoryItems.map((item) => (
+                            <tr key={item.id} style={styles.tr}>
+                                <td style={styles.td}>{item.id}</td>
+                                <td style={styles.td}><strong>{item.sku}</strong></td>
+                                <td style={styles.td}>{item.bin}</td>
+                                <td style={styles.td}>{item.qty}</td>
+                                <td style={styles.td}>
+                                    <span style={
+                                        item.status === 'OPTIMAL' ? styles.statusBadgeGreen : styles.statusBadgeBlue
+                                    }>
+                                        {item.status}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
                     </tbody>
                 </table>
             </section>
@@ -97,7 +130,8 @@ const styles = {
     th: { padding: '12px', borderBottom: '2px solid #dee2e6', color: '#495057', fontWeight: '600', fontSize: '14px' },
     tr: { borderBottom: '1px solid #dee2e6', transition: 'background-color 0.2s' },
     td: { padding: '14px 12px', color: '#212529', fontSize: '14px' },
-    statusBadgeGreen: { background: '#d4edda', color: '#155724', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }
+    statusBadgeGreen: { background: '#d4edda', color: '#155724', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' },
+    statusBadgeBlue: { background: '#e8f0fe', color: '#1a73e8', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' } // Added style for scanned rows
 };
 
 export default WarehouseDashboard;
