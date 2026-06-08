@@ -15,6 +15,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import java.util.Arrays;
+import java.util.List;
+
 @ExtendWith(MockitoExtension.class)
 class ProductServiceTest {
 
@@ -42,6 +45,24 @@ class ProductServiceTest {
         sampleDTO.setName("Industrial Storage Rack");
         sampleDTO.setDescription("Heavy duty storage rack");
         sampleDTO.setCategory("electronics");
+    }
+    
+    @Test
+    @DisplayName("Product Service: getAllProducts() - Should return all mock product listings successfully")
+    void shouldReturnAllProducts() {
+        // Arrange: Teach the mock repository what to return when called
+        when(productRepository.findAll()).thenReturn(Arrays.asList(sampleProduct));
+
+        // Act: Run the actual business logic method
+        List<Product> result = productService.getAllProducts();
+
+        // Assert: Verify data integrity constraints
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("PROD-SKU-2026", result.get(0).getSku());
+        
+        // Behavioral Check: Confirm the service layer actually requested data from the repository exactly once
+        verify(productRepository, times(1)).findAll();
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.infotact.inventory.service;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import com.infotact.inventory.dto.ProductRequestDTO;
@@ -26,6 +28,12 @@ public class ProductServiceImpl implements ProductService{
 	    product.setCategory(dto.getCategory().toUpperCase());
 	    return repository.save(product);
 	    
+	}
+
+	@Override
+	public List<Product> getAllProducts() {
+		
+		return repository.findAll();
 	}
 
 }
