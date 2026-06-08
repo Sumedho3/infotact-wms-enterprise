@@ -4,13 +4,26 @@ import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import Login from './components/auth/Login' 
 import { AuthProvider, useAuth } from './components/auth/AuthContext' 
-import ProtectedRoute from './components/auth/ProtectedRoute' // 👈 1. Import your brand new Day 5 Gateguard
+import ProtectedRoute from './components/auth/ProtectedRoute' 
+import WarehouseDashboard from './components/dashboard/WarehouseDashboard' // 👈 CHANGE 1: Import your production dashboard component
 import './App.css'
 
-// 2. Create a fast internal component to manage state visibility cleanly
+// Create a fast internal component to manage state visibility cleanly
 function MainWorkspaceContent() {
-  const { user, logoutService } = useAuth(); // Grab the live login log details from our global service desk
+  const { user } = useAuth(); // Grab the live login details from our global service desk
 
+  // 👈 CHANGE 2: Early return statement for layout rendering.
+  // The moment 'user' is initialized by a valid JWT claim, we completely hand over 
+  // the viewport to the Warehouse Dashboard under the guard rails of ProtectedRoute.
+  if (user) {
+    return (
+      <ProtectedRoute>
+        <WarehouseDashboard />
+      </ProtectedRoute>
+    );
+  }
+
+  // Otherwise, render the standard public landing page frame with the Login card engine
   return (
     <>
       <section id="center">
@@ -21,23 +34,7 @@ function MainWorkspaceContent() {
         </div>
         
         <div style={{ margin: '20px 0', width: '100%', maxWidth: '360px' }}>
-          {/* 3. Conditional Rendering: If a user is NOT logged in, show the Login card */}
-          {!user ? (
-            <Login />
-          ) : (
-            /* 4. Gateguard Verification: If they are logged in, swap the card out for a secure view! */
-            <ProtectedRoute>
-              <div style={styles.secureCard}>
-                <h2 style={styles.secureTitle}>WMS Active Dashboard</h2>
-                <p style={styles.secureText}>Welcome back, <strong style={{color: '#007bff'}}>{user.username}</strong>!</p>
-                <p style={styles.secureText}>Clearance Clearance Level: <span style={styles.badge}>{user.role}</span></p>
-                
-                <button onClick={logoutService} style={styles.logoutBtn}>
-                  Secure Sign Out
-                </button>
-              </div>
-            </ProtectedRoute>
-          )}
+          <Login />
         </div>
       </section>
 
@@ -114,7 +111,7 @@ function MainWorkspaceContent() {
   );
 }
 
-// 5. Outermost App layout wraps everything inside the global Context Provider
+// Outermost App layout wraps everything inside the global Context Provider
 function App() {
   return (
     <AuthProvider> 
@@ -122,14 +119,5 @@ function App() {
     </AuthProvider> 
   )
 }
-
-// Enterprise embedded styles for your newly unlocked secure panel view
-const styles = {
-  secureCard: { background: '#ffffff', padding: '30px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', width: '100%', boxSizing: 'border-box', textAlign: 'center', fontFamily: 'Arial, sans-serif' },
-  secureTitle: { color: '#333', marginBottom: '16px', fontSize: '22px' },
-  secureText: { color: '#555', margin: '8px 0', fontSize: '15px' },
-  badge: { background: '#e1f5fe', color: '#0288d1', padding: '4px 10px', borderRadius: '12px', fontSize: '13px', fontWeight: 'bold' },
-  logoutBtn: { width: '100%', marginTop: '20px', padding: '10px', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }
-};
 
 export default App;
