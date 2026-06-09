@@ -3,6 +3,7 @@ import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
 import Login from './components/auth/Login' 
+import Register from './components/auth/Register' // 👈 CHANGE: Import your new Register Component
 import { AuthProvider, useAuth } from './components/auth/AuthContext' 
 import ProtectedRoute from './components/auth/ProtectedRoute' 
 import WarehouseDashboard from './components/dashboard/WarehouseDashboard' // 👈 CHANGE 1: Import your production dashboard component
@@ -11,6 +12,9 @@ import './App.css'
 // Create a fast internal component to manage state visibility cleanly
 function MainWorkspaceContent() {
   const { user } = useAuth(); // Grab the live login details from our global service desk
+
+  // 🎯 CHANGE: State hook to track whether the anonymous user is on the Login or Register card view
+  const [isRegisterView, setIsRegisterView] = useState(false);
 
   // 👈 CHANGE 2: Early return statement for layout rendering.
   // The moment 'user' is initialized by a valid JWT claim, we completely hand over 
@@ -23,7 +27,7 @@ function MainWorkspaceContent() {
     );
   }
 
-  // Otherwise, render the standard public landing page frame with the Login card engine
+  // Otherwise, render the standard public landing page frame with the Login/Register toggle card engine
   return (
     <>
       <section id="center">
@@ -33,8 +37,13 @@ function MainWorkspaceContent() {
           <img src={viteLogo} className="vite" alt="Vite logo" />
         </div>
         
-        <div style={{ margin: '20px 0', width: '100%', maxWidth: '360px' }}>
-          <Login />
+        <div style={{ margin: '20px 0', width: '100%', maxWidth: '360px', display: 'flex', justifyContent: 'center' }}>
+          {/* 🎯 CHANGE: Conditional layout block to render the correct view with clean callback assignments */}
+          {isRegisterView ? (
+            <Register switchToLogin={() => setIsRegisterView(false)} />
+          ) : (
+            <Login switchToRegister={() => setIsRegisterView(true)} />
+          )}
         </div>
       </section>
 
