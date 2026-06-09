@@ -1,7 +1,7 @@
-import React, { useState } from 'react'; // 👈 MODIFICATION 1: Bring in useState for dynamic data updates
+import React, { useState } from 'react'; 
 import { useAuth } from '../auth/AuthContext';
-import BarcodeScanner from './BarcodeScanner'; // 👈 MODIFICATION 2: Import your fresh scanning engine
-
+import BarcodeScanner from './BarcodeScanner';
+import OrderFulfillment from './OrderFulfillment';
 /**
  * WarehouseDashboard Component
  * Provides a production-grade operational layout workspace for tracking inventory metrics.
@@ -9,16 +9,16 @@ import BarcodeScanner from './BarcodeScanner'; // 👈 MODIFICATION 2: Import yo
 const WarehouseDashboard = () => {
     const { user, logoutService } = useAuth();
 
-    // 👈 MODIFICATION 3: Convert the mock table records into a dynamic state array
+    // Convert the mock table records into a dynamic state array
     const [inventoryItems, setInventoryItems] = useState([
         { id: 1001, sku: 'PROD-SKU-2026', bin: 'BIN-A (Row 4)', qty: '15 Units', status: 'OPTIMAL' },
         { id: 1002, sku: 'PROD-SKU-2026', bin: 'BIN-B (Row 4)', qty: '10 Units', status: 'OPTIMAL' }
     ]);
 
-    // 👈 MODIFICATION 4: Convert your layout counter into a state integer
+    // Convert your layout counter into a state integer
     const [totalProducts, setTotalProducts] = useState(1240);
 
-    // 👈 MODIFICATION 5: Add the processing callback to catch laser-scanned data tokens
+    // Add the processing callback to catch laser-scanned data tokens
     const handleBarcodeDetected = (scannedSku) => {
         const scannedRowBlueprint = {
             id: Math.floor(Math.random() * 9000) + 1000, // Generate a random matching 4-digit product ID
@@ -48,7 +48,7 @@ const WarehouseDashboard = () => {
                 </button>
             </header>
 
-            {/* 👈 MODIFICATION 6: Mount the hardware interceptor engine right above your metrics panel */}
+            {/* Mount the hardware interceptor engine right above your metrics panel */}
             <BarcodeScanner onScanSuccess={handleBarcodeDetected} />
 
             {/* Metrics Counter Rows */}
@@ -87,7 +87,7 @@ const WarehouseDashboard = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {/* 👈 MODIFICATION 7: Map across state array entries dynamically instead of using hardcoded rows */}
+                        {/* Map across state array entries dynamically instead of using hardcoded rows */}
                         {inventoryItems.map((item) => (
                             <tr key={item.id} style={styles.tr}>
                                 <td style={styles.td}>{item.id}</td>
@@ -106,6 +106,7 @@ const WarehouseDashboard = () => {
                     </tbody>
                 </table>
             </section>
+	    <OrderFulfillment />
         </div>
     );
 };
