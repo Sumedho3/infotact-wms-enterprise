@@ -19,10 +19,15 @@ export const AuthProvider = ({ children }) => {
                 return null;
             }
 
+	    const rawRoleString = decoded.roles || 'ROLE_OPERATOR';
+
+	    // 2. If there are multiple comma-separated roles, split and grab the first one
+            const primaryRole = rawRoleString.split(',')[0];
+
             // Map your exact Spring Boot JWT claims to your React state structure
             return {
                 username: decoded.sub,      // 'sub' is the standard JWT field for username
-                role: decoded.role || decoded.roles || 'OPERATOR' // Reads the dynamic array/string role from backend claims
+                role: primaryRole.replace('ROLE_', '').trim()
             };
         } catch (error) {
             console.error("Invalid token parsing attempt:", error);
