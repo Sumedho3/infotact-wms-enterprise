@@ -35,5 +35,5 @@ public class ProductController {
 	}
 
     @GetMapping
-    public List<Product> getAll() { return repository.findAll(); }
+    public List<Product> getAll() { return service.getAllProducts(); }
 }
