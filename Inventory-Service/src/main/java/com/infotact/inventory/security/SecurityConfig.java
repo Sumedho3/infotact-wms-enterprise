@@ -1,5 +1,6 @@
 package com.infotact.inventory.security;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -25,6 +26,12 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    
+    @Autowired
+    private JwtAuthEntryPoint unauthorizedHandler;
+
+    @Autowired
+    private CustomAccessDeniedHandler accessDeniedHandler;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
@@ -38,12 +45,15 @@ public class SecurityConfig {
             
             // 2. Disable CSRF because stateless JWT token architectures don't use cookie-based sessions
             .csrf(csrf -> csrf.disable())
+            .exceptionHandling(exception -> exception
+                    .authenticationEntryPoint(unauthorizedHandler)
+                    .accessDeniedHandler(accessDeniedHandler)
+            )
             
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll() 
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")                                 // Hard locked to Administrator access
                 .requestMatchers("/api/products/delete/**").hasRole("ADMIN")                        // Destructive actions require ADMIN role
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/users/me").authenticated()  									// 👈 Ensure any logged-in user can access their own profile
                 .requestMatchers("/api/products/create/*", "/api/products/update/*").hasRole("ADMIN") // Catalog management limited to ADMIN
                 .requestMatchers("/api/products/**").hasAnyRole("ADMIN", "OPERATOR")                 // Read-only/Viewing operations open to both
