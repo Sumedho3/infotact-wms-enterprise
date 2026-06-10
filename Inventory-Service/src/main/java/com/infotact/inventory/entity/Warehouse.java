@@ -2,8 +2,11 @@ package com.infotact.inventory.entity;
 
 import java.util.List;
 
+import com.infotact.inventory.model.User;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -23,6 +26,9 @@ public class Warehouse {
 
     @OneToMany(mappedBy = "warehouse", cascade = CascadeType.ALL)
     private List<StorageBin> bins;
+    
+    @OneToMany(mappedBy = "warehouse", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<User> employees;
 
 	public Long getId() {
 		return id;
