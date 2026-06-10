@@ -1,83 +1,83 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axiosClient from '../../api/axiosClient';
 
 /**
- * OrderFulfillment Component
- * Renders the outbound order book queue manifest and executes transactional 
- * deductions live over your Week 3 status pipeline endpoint.
- * * 🎯 FIXED: Accepts userProfile as a dynamic prop to guard against tokenless race conditions.
+ * OrderFulfillment Component (Week 3 Inventory Deduction Desk)
+ * Captures manual or scanned dispatch events and submits an operational status packet 
+ * to your transactional Spring Boot service layer to deduct PostgreSQL stocks sequentially.
  */
 const OrderFulfillment = ({ onOrderPacked, userProfile }) => {
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
+    // Form Entry States
+    const [orderIdInput, setOrderIdInput] = useState('');
+    const [productIdInput, setProductIdInput] = useState('');
+    const [quantityInput, setQuantityInput] = useState(1);
+    
+    // UI Operational States
+    const [isProcessing, setIsProcessing] = useState(false);
     const [toastMessage, setToastMessage] = useState('');
+    
+    // 🎯 NEW MODAL STATES (Replaces browser alert with a manual close modal)
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalTitle, setModalTitle] = useState('');
+    const [modalContent, setModalContent] = useState('');
 
-    // Fetch outstanding order tracking rows from database when user session is fully synchronized
-    useEffect(() => {
-        const fetchActiveOrders = async () => {
-            // 🎯 THE FIX: Stop execution if the parent dashboard is still instantiating the login session context.
-            // This completely blocks tokenless requests from hitting Spring Security at startup!
-            if (!userProfile || !userProfile.username) {
-                return; 
-            }
+    // 📤 CONNECTED TO WEEK 3: Submits the transactional collection array packet
+    const handleProcessDeduction = async (e) => {
+        e.preventDefault();
 
-            try {
-                setLoading(true);
-                // Adjust route query if your specific order backlog lookup path differs
-                const response = await axiosClient.get('/api/orders');
-                setOrders(response.data);
-            } catch (err) {
-                console.error("Failed to fetch order queue manifest records:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
+        if (!orderIdInput.trim() || !productIdInput.trim() || quantityInput < 1) {
+            setModalTitle("Operational Warning");
+            setModalContent("Please populate all fields with valid data attributes before processing.");
+            setModalVisible(true);
+            return;
+        }
 
-        fetchActiveOrders();
-    // 🎯 RE-RUN EFFECT: The exact split second your logged-in profile finishes initializing!
-    }, [userProfile]); 
-
-    // 📦 CONNECTED TO WEEK 3: Pack an Order & Trigger Automated Database Stock Deduction
-    const handleFulfillOrder = async (orderId, targetProductId, qty) => {
-        // ZERO HARDCODING: Body structures dynamically build relative to row entity variables
-        const packingPayload = {
+        const orderStatusUpdateRequest = {
             status: "PACKED",
             items: [
                 {
-                    productId: parseInt(targetProductId),
-                    orderedQuantity: parseInt(qty)
+                    productId: parseInt(productIdInput.trim(), 10),
+                    orderedQuantity: parseInt(quantityInput, 10)
                 }
             ]
         };
 
         try {
-            // Fires transaction pipeline updates straight to your Week 3 status routing path
-            await axiosClient.put(`/api/orders/${orderId}/status`, packingPayload);
+            setIsProcessing(true);
 
-            // 1. Instantly switch the local row status column badge state to "PACKED"
-            setOrders(prevOrders => 
-                prevOrders.map(order => 
-                    order.id === orderId ? { ...order, status: "PACKED" } : order
-                )
-            );
+            const endpointPath = `/api/orders/${encodeURIComponent(orderIdInput.trim())}/status`;
+            await axiosClient.put(endpointPath, orderStatusUpdateRequest);
 
-            // 2. Trigger an automated success message box on screen
-            setToastMessage(`Success: Order #${orderId} packed! Stock levels decremented inside PostgreSQL.`);
+            // Trigger Success Auto-Vanishing Toast
+            setToastMessage(`Success: Order #${orderIdInput} Dispatched! Stock allocated and deducted from Storage bins.`);
             setTimeout(() => setToastMessage(''), 4000);
 
-            // 3. THE REFRESH HOOK: Signal back up to the master dashboard to recalculate your inventory numbers
             if (onOrderPacked) {
                 await onOrderPacked();
             }
+
+            setOrderIdInput('');
+            setProductIdInput('');
+            setQuantityInput(1);
+
         } catch (err) {
-            console.error("Failed to execute order status optimization transaction:", err);
-            alert("Transactional Error: Stock deduction rejected. Check if adequate inventory balance exists.");
+            console.error("Fulfillment Transaction Failed:", err);
+            
+            // 🎯 CAPTURE BACKEND EXCEPTION MESSAGE: Grabs your custom Spring Boot text dynamically!
+            const errorReason = err.response?.data?.message || "Deduction rejected. Check if adequate stock footprints exist across your bins.";
+            
+            // Launch the styled custom modal (Will NOT auto-close, requires manual OK click)
+            setModalTitle("Fulfillment Exception");
+            setModalContent(errorReason);
+            setModalVisible(true);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
     return (
         <div style={styles.container}>
-            {/* Pop-up notification banner wrapper layout slot */}
+            {/* Success Auto-Hide Toast Banner */}
             {toastMessage && (
                 <div style={styles.toast}>
                     <span style={styles.toastIcon}>📦</span>
@@ -85,99 +85,117 @@ const OrderFulfillment = ({ onOrderPacked, userProfile }) => {
                 </div>
             )}
 
+            {/* 🎯 NEW STYLED MODAL OVERLAY (Triggers on stock exceptions) */}
+            {modalVisible && (
+                <div style={styles.modalOverlay}>
+                    <div style={styles.modalCard}>
+                        <div style={styles.modalHeader}>
+                            ⚠️ {modalTitle}
+                        </div>
+                        <div style={styles.modalBody}>
+                            {modalContent}
+                        </div>
+                        <div style={styles.modalFooter}>
+                            <button 
+                                type="button" 
+                                onClick={() => setModalVisible(false)} // 🎯 Closes manually on OK click
+                                style={styles.modalBtn}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div style={styles.panelHeader}>
                 <div style={{ textAlign: 'left' }}>
-                    <h2 style={styles.panelTitle}>Active Order Fulfillment Center</h2>
-                    <p style={styles.panelSubtitle}>Process outbound shipments and execute transactional stock deductions live.</p>
-                </div>
-                <div style={styles.badgeCount}>
-                    {orders.filter(o => o.status !== "PACKED").length} Outstanding
+                    <h2 style={styles.panelTitle}>Active Order Fulfillment Center (Week 3 Desk)</h2>
+                    <p style={styles.panelSubtitle}>Input outbound shipping manifests to execute live transactional sequential stock deductions.</p>
                 </div>
             </div>
 
-            <div style={styles.tableWrapper}>
-                {loading ? (
-                    // If the parent dashboard hasn't finished loading the user data, show standard loading placeholder
-                    <div style={styles.loadingText}>
-                        {!userProfile || !userProfile.username 
-                            ? "Waiting for authorized workspace synchronization..." 
-                            : "Synchronizing Order Backlog Book..."
-                        }
-                    </div>
-                ) : (
-                    <table style={styles.table}>
-                        <thead>
-                            <tr style={styles.thRow}>
-                                <th style={styles.th}>Order ID</th>
-                                <th style={styles.th}>Customer Destination</th>
-                                <th style={styles.th}>Product ID</th>
-                                <th style={styles.th}>Requested Qty</th>
-                                <th style={styles.th}>Status</th>
-                                <th style={{ ...styles.th, textAlign: 'center' }}>Action Gate</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {orders.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" style={{ ...styles.td, textAlign: 'center', color: '#6c757d' }}>
-                                        No outstanding operational orders found in database records.
-                                    </td>
-                                </tr>
-                            ) : (
-                                orders.map((order) => (
-                                    <tr key={order.id} style={styles.tr}>
-                                        <td style={styles.td}><strong>#{order.id}</strong></td>
-                                        <td style={styles.td}>{order.customerName || 'Enterprise Client'}</td>
-                                        <td style={{ ...styles.td, color: '#6c757d' }}>#{order.productId || 1}</td>
-                                        <td style={styles.td}><strong>{order.quantity || 200} Units</strong></td>
-                                        <td style={styles.td}>
-                                            <span style={order.status === 'PACKED' ? styles.statusFulfilled : styles.statusPending}>
-                                                {order.status || 'PENDING'}
-                                            </span>
-                                        </td>
-                                        <td style={{ ...styles.td, textAlign: 'center' }}>
-                                            {order.status !== 'PACKED' ? (
-                                                <button 
-                                                    // Pass row variables dynamically directly to your Week 3 payload compiler function
-                                                    onClick={() => handleFulfillOrder(order.id, order.productId || 1, order.quantity || 200)}
-                                                    style={styles.actionBtn}
-                                                >
-                                                    Pack & Deduct Stock
-                                                </button>
-                                            ) : (
-                                                <button style={styles.disabledBtn} disabled>Completed</button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                )}
-            </div>
+            <form onSubmit={handleProcessDeduction} style={styles.formLayout}>
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>Voucher Order ID Reference:</label>
+                    <input 
+                        type="number"
+                        placeholder="e.g., 101"
+                        value={orderIdInput}
+                        onChange={(e) => setOrderIdInput(e.target.value)}
+                        style={styles.textInput}
+                        disabled={isProcessing}
+                    />
+                </div>
+
+                <div style={styles.inputGroup}>
+                    <label style={{ ...styles.label, borderLeft: '3px solid #007bff', paddingLeft: '6px' }}>Target Product ID:</label>
+                    <input 
+                        type="number"
+                        placeholder="e.g., 1"
+                        value={productIdInput}
+                        onChange={(e) => productIdInput === 0 ? setProductIdInput(e.target.value) : setProductIdInput(e.target.value)}
+                        style={styles.textInput}
+                        disabled={isProcessing}
+                    />
+                </div>
+
+                <div style={styles.inputGroup}>
+                    <label style={styles.label}>Ordered Quantity Volume:</label>
+                    <input 
+                        type="number"
+                        min="1"
+                        value={quantityInput === 0 ? '' : quantityInput}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === '') setQuantityInput(0);
+                            else {
+                                const parsed = parseInt(val, 10);
+                                setQuantityInput(isNaN(parsed) ? 1 : parsed);
+                            }
+                        }}
+                        onBlur={() => { if (quantityInput < 1) setQuantityInput(1); }}
+                        style={styles.textInput}
+                        disabled={isProcessing}
+                    />
+                </div>
+
+                <div style={styles.btnWrapper}>
+                    <button 
+                        type="submit" 
+                        style={isProcessing ? styles.processingBtn : styles.actionBtn}
+                        disabled={isProcessing}
+                    >
+                        {isProcessing ? "Processing Deductions..." : "Pack & Deduct Stock"}
+                    </button>
+                </div>
+            </form>
         </div>
     );
 };
 
 const styles = {
     container: { background: '#ffffff', padding: '25px', borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', marginTop: '30px' },
-    panelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #f1f3f5', paddingBottom: '15px' },
-    panelTitle: { margin: 0, fontSize: '20px', color: '#212529', fontWeight: 'bold' },
+    panelHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', borderBottom: '1px solid #f1f3f5', paddingBottom: '15px' },
+    panelTitle: { margin: 0, fontSize: '18px', color: '#212529', fontWeight: 'bold' },
     panelSubtitle: { margin: '5px 0 0 0', fontSize: '13px', color: '#6c757d' },
-    badgeCount: { background: '#fff3cd', color: '#856404', padding: '6px 12px', borderRadius: '20px', fontSize: '13px', fontWeight: 'bold', border: '1px solid #ffeeba' },
-    tableWrapper: { overflowX: 'auto' },
-    table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-    thRow: { backgroundColor: '#f8f9fa' },
-    th: { padding: '12px', borderBottom: '2px solid #dee2e6', color: '#495057', fontWeight: '600', fontSize: '14px' },
-    tr: { borderBottom: '1px solid #dee2e6', transition: 'background-color 0.2s' },
-    td: { padding: '14px 12px', color: '#212529', fontSize: '14px' },
-    statusPending: { background: '#fff3cd', color: '#856404', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' },
-    statusFulfilled: { background: '#d4edda', color: '#155724', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' },
-    actionBtn: { background: '#28a745', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', transition: 'background 0.2s' },
-    disabledBtn: { background: '#e9ecef', color: '#6c757d', border: 'none', padding: '8px 16px', borderRadius: '4px', fontSize: '13px', cursor: 'not-allowed' },
-    loadingText: { padding: '20px', textAlign: 'center', color: '#007bff', fontWeight: 'bold' },
-    toast: { position: 'fixed', bottom: '30px', right: '30px', backgroundColor: '#17a2b8', color: '#ffffff', padding: '16px 28px', borderRadius: '6px', boxShadow: '0 4px 15px rgba(23, 162, 184, 0.3)', fontSize: '14px', fontWeight: 'bold', zIndex: 9999, display: 'flex', alignItems: 'center', gap: '10px' },
-    toastIcon: { fontSize: '18px' }
+    formLayout: { display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'flex-end', textAlign: 'left' },
+    inputGroup: { flex: '1', minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '6px' },
+    label: { fontSize: '13px', color: '#495057', fontWeight: 'bold' },
+    textInput: { padding: '10px 12px', border: '1px solid #ced4da', borderRadius: '4px', fontSize: '14px', outline: 'none' },
+    btnWrapper: { minWidth: '200px', display: 'flex' },
+    actionBtn: { width: '100%', background: '#dc3545', color: '#fff', border: 'none', padding: '11px 20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' },
+    processingBtn: { width: '100%', background: '#c82333', color: '#fff', border: 'none', padding: '11px 20px', borderRadius: '4px', cursor: 'not-allowed', fontWeight: 'bold', fontSize: '14px' },
+    toast: { position: 'fixed', bottom: '30px', right: '30px', backgroundColor: '#28a745', color: '#ffffff', padding: '16px 28px', borderRadius: '6px', boxShadow: '0 4px 15px rgba(40, 167, 69, 0.3)', fontSize: '14px', fontWeight: 'bold', zIndex: 9999, display: 'flex', alignItems: 'center', gap: '10px' },
+    toastIcon: { fontSize: '18px' },
+    
+    // 🎯 NEW MODAL CSS MATRIX STYLES
+    modalOverlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000 },
+    modalCard: { background: '#ffffff', minWidth: '350px', maxWidth: '500px', borderRadius: '6px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
+    modalHeader: { background: '#fff3cd', color: '#856404', padding: '16px 20px', fontWeight: 'bold', fontSize: '16px', borderBottom: '1px solid #ffeeba', textAlign: 'left' },
+    modalBody: { padding: '20px', color: '#721c24', fontSize: '14px', textAlign: 'left', backgroundColor: '#fdf8e2', lineHeight: '1.5', fontWeight: '500' },
+    modalFooter: { padding: '12px 20px', background: '#f8f9fa', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'flex-end' },
+    modalBtn: { background: '#856404', color: '#ffffff', border: 'none', padding: '8px 20px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }
 };
 
 export default OrderFulfillment;
