@@ -1,5 +1,7 @@
 package com.infotact.inventory.security;
-
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -22,7 +24,11 @@ import java.util.Arrays;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    @Autowired
+    private JwtAuthEntryPoint unauthorizedHandler;
 
+    @Autowired
+    private CustomAccessDeniedHandler accessDeniedHandler;
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter
     ) {
@@ -45,6 +51,10 @@ public class SecurityConfig {
                 )
 
                 .csrf(csrf -> csrf.disable())
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(unauthorizedHandler)
+                        .accessDeniedHandler(accessDeniedHandler)
+                )
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
@@ -113,5 +123,10 @@ public class SecurityConfig {
 
         return authenticationConfiguration
                 .getAuthenticationManager();
+    }
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+
+        return new BCryptPasswordEncoder();
     }
 }
