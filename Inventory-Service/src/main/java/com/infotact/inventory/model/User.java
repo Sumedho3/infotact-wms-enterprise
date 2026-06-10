@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import java.util.HashSet;
 import java.util.Set;
 
+import com.infotact.inventory.entity.Warehouse;
+
 @Entity
 @Table(name = "users", uniqueConstraints = {
         @UniqueConstraint(columnNames = "username")
@@ -28,20 +30,40 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "role_name")
     private Set<Role> roles = new HashSet<>();
+    
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "warehouse_id", nullable = true) // Foreign key column in PostgreSQL user table
+    private Warehouse warehouse;
 
     public User() {
     }
 
-    public User(String username,
-                String password,
-                Set<Role> roles) {
+    
 
-        this.username = username;
-        this.password = password;
-        this.roles = roles;
-    }
+    public Warehouse getWarehouse() {
+		return warehouse;
+	}
 
-    public Long getId() {
+
+
+	public void setWarehouse(Warehouse warehouse) {
+		this.warehouse = warehouse;
+	}
+
+
+
+	public User(Long id, String username, String password, Set<Role> roles, Warehouse warehouse) {
+		super();
+		this.id = id;
+		this.username = username;
+		this.password = password;
+		this.roles = roles;
+		this.warehouse = warehouse;
+	}
+
+
+
+	public Long getId() {
         return id;
     }
 

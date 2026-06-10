@@ -2,6 +2,7 @@ package com.infotact.inventory.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -42,6 +43,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll() 
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")                                 // Hard locked to Administrator access
                 .requestMatchers("/api/products/delete/**").hasRole("ADMIN")                        // Destructive actions require ADMIN role
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/api/users/me").authenticated()  									// 👈 Ensure any logged-in user can access their own profile
                 .requestMatchers("/api/products/create/*", "/api/products/update/*").hasRole("ADMIN") // Catalog management limited to ADMIN
                 .requestMatchers("/api/products/**").hasAnyRole("ADMIN", "OPERATOR")                 // Read-only/Viewing operations open to both
                 .requestMatchers("/api/orders/**").hasAnyRole("ADMIN", "OPERATOR")                   // Fulfillment tasks accessible by both roles
