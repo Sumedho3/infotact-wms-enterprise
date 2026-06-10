@@ -1,6 +1,7 @@
 package com.infotact.inventory.security;
 
 import org.springframework.beans.factory.annotation.Autowired;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -32,6 +33,7 @@ public class SecurityConfig {
 
     @Autowired
     private CustomAccessDeniedHandler accessDeniedHandler;
+
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
