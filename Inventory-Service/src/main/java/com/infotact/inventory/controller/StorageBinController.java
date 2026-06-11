@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.infotact.inventory.dto.StorageBinRequestDTO;
+import com.infotact.inventory.dto.StorageBinResponseDTO;
 import com.infotact.inventory.entity.StorageBin;
 import com.infotact.inventory.repository.StorageBinRepository;
 import com.infotact.inventory.service.StorageBinService;
@@ -35,5 +36,5 @@ public class StorageBinController {
 	}
 
     @GetMapping
-    public List<StorageBin> getAll() { return repository.findAll(); }
+    public List<StorageBinResponseDTO> getAll() { return service.getItems(); }
 }

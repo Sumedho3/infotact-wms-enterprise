@@ -21,7 +21,7 @@ public class AuthController {
 	@PostMapping("/register")
     public ResponseEntity<String> registerUser(@RequestBody RegisterRequest registerRequest) {
         try {
-            String resultMessage = authService.createUser(registerRequest.getUsername(),registerRequest.getPassword(),registerRequest.getRole());
+            String resultMessage = authService.createUser(registerRequest.getUsername(),registerRequest.getPassword(),registerRequest.getRole(), registerRequest.getWarehouseId());
             return ResponseEntity.status(HttpStatus.CREATED).body(resultMessage);
         } catch (IllegalArgumentException e) {
             // Catches our duplicate user rule failure and returns a clean 400 Bad Request

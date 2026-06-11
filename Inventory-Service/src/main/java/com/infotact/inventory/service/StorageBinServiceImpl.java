@@ -1,11 +1,16 @@
 package com.infotact.inventory.service;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import com.infotact.inventory.dto.StorageBinRequestDTO;
+import com.infotact.inventory.dto.StorageBinResponseDTO;
 import com.infotact.inventory.entity.StorageBin;
 import com.infotact.inventory.entity.Warehouse;
 import com.infotact.inventory.helper.BinCodeOp;
+import com.infotact.inventory.helper.StoragebinMapper;
 import com.infotact.inventory.repository.StorageBinRepository;
 import com.infotact.inventory.repository.WarehouseRepository;
 
@@ -33,6 +38,17 @@ public class StorageBinServiceImpl implements StorageBinService{
 		bin.setWarehouse(warehouse);
 		
 		return repository.save(bin);
+	}
+	
+
+
+	@Override
+	public List<StorageBinResponseDTO> getItems() {
+		
+		List<StorageBin> list = repository.findAll();
+		List<StorageBinResponseDTO> res = new ArrayList<>();
+		for(StorageBin loop: list) res.add(StoragebinMapper.mapToDTO(loop));
+		return res;
 	}
 
 }

@@ -27,26 +27,25 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> getCurrentUserProfile(Authentication authentication) {
         Map<String, Object> profile = new HashMap<>();
         
-        // 1. Get the authenticated username string straight out of the secure context session
         String username = authentication.getName(); 
-        
-        // 2. Query PostgreSQL to find the full User record along with its lazy-loaded relations
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Principal security mismatch: User record not found"));
 
         profile.put("username", user.getUsername());
         
-        // Extract the role authority name string dynamically
         String activeRole = authentication.getAuthorities().iterator().next().getAuthority();
         profile.put("role", activeRole.replace("ROLE_", "").trim());
         
-        // 🎯 THE DYNAMIC, NON-HARDCODED RELATIONSHIP SOLUTION:
-        // Follow the relational object graph mapping straight to the warehouse configuration table
         if (user.getWarehouse() != null) {
-            // Pulls the real, live location text (e.g. your Amravati city database field strings) dynamically!
             profile.put("warehouseLocation", user.getWarehouse().getLocation()); 
+            
+            // 🎯 THE MISSING LINE FIX: 
+            // Explicitly pass the warehouse ID down to your frontend state engine!
+            profile.put("warehouseId", user.getWarehouse().getId()); 
+            profile.put("warehouseName", user.getWarehouse().getName());
         } else {
             profile.put("warehouseLocation", "Floating Assignment / Field Operator");
+            profile.put("warehouseId", null);
         }
 
         return ResponseEntity.ok(profile);

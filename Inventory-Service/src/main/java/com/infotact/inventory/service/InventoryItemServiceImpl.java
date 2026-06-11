@@ -1,11 +1,16 @@
 package com.infotact.inventory.service;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 
 import com.infotact.inventory.dto.InventoryRequestDTO;
+import com.infotact.inventory.dto.InventoryResponsedto2;
 import com.infotact.inventory.entity.InventoryItem;
 import com.infotact.inventory.entity.Product;
 import com.infotact.inventory.entity.StorageBin;
+import com.infotact.inventory.helper.InventoryMapper;
 import com.infotact.inventory.repository.InventoryItemRepository;
 import com.infotact.inventory.repository.ProductRepository;
 import com.infotact.inventory.repository.StorageBinRepository;
@@ -43,6 +48,16 @@ public class InventoryItemServiceImpl implements InventoryItemService{
 	    item.setStorageBin(bin);
 	    
 	    return inventoryItemRepository.save(item);
+	}
+
+
+	@Override
+	public List<InventoryResponsedto2> getItems() {
+		
+		List<InventoryItem> list = inventoryItemRepository.findAll();
+		List<InventoryResponsedto2> res = new ArrayList<>();
+		for(InventoryItem loop: list) res.add(InventoryMapper.mapToDto(loop));
+		return res;
 	}
 
 }

@@ -61,18 +61,23 @@ const OrderFulfillment = ({ onOrderPacked, userProfile }) => {
             setQuantityInput(1);
 
         } catch (err) {
-            console.error("Fulfillment Transaction Failed:", err);
-            
-            // 🎯 CAPTURE BACKEND EXCEPTION MESSAGE: Grabs your custom Spring Boot text dynamically!
-            const errorReason = err.response?.data?.message || "Deduction rejected. Check if adequate stock footprints exist across your bins.";
-            
-            // Launch the styled custom modal (Will NOT auto-close, requires manual OK click)
-            setModalTitle("Fulfillment Exception");
-            setModalContent(errorReason);
-            setModalVisible(true);
-        } finally {
-            setIsProcessing(false);
-        }
+			console.error("Fulfillment Transaction Failed:", err);
+			
+			let errorReason = "";
+			
+			// 🎯 FIXing Issue 1: Explicitly check if the server is offline
+			if (err.message === "Server Is Inactive" || !err.response) {
+				errorReason = "Network Error: Failed to communicate with backend server. Please verify your connection status.";
+			} else {
+				errorReason = err.response?.data?.message || err.response?.data?.error || "Deduction rejected. Check if adequate stock footprints exist across your bins.";
+			}
+			
+			setModalTitle("System Exception");
+			setModalContent(errorReason);
+			setModalVisible(true);
+		} finally {
+			setIsProcessing(false);
+		}
     };
 
     return (

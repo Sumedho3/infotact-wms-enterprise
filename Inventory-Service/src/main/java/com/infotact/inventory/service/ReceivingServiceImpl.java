@@ -5,78 +5,112 @@ import com.infotact.inventory.dto.ReceivingRequestDTO;
 import com.infotact.inventory.entity.InventoryItem;
 import com.infotact.inventory.entity.Product;
 import com.infotact.inventory.entity.StorageBin;
+import com.infotact.inventory.exception.StorageOverflowException;
 import com.infotact.inventory.repository.InventoryRepository;
 import com.infotact.inventory.repository.ProductRepository;
+import com.infotact.inventory.repository.StorageBinRepository;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
-public class ReceivingServiceImpl implements ReceivingService{
+public class ReceivingServiceImpl implements ReceivingService {
 
     private final ProductRepository productRepository;
-    private final PutawayService putawayService;
     private final InventoryRepository inventoryRepository;
+    private final StorageBinRepository storageBinRepository; 
+    
+    @Value("${wms.config.global-max-bin-capacity}")
+    private int maxBinCapacity;
 
-    // Constructor Injection
     public ReceivingServiceImpl(ProductRepository productRepository,
-                            PutawayService putawayService,
-                            InventoryRepository inventoryRepository) {
+                                InventoryRepository inventoryRepository,
+                                StorageBinRepository storageBinRepository) {
         this.productRepository = productRepository;
-        this.putawayService = putawayService;
         this.inventoryRepository = inventoryRepository;
+        this.storageBinRepository = storageBinRepository;
     }
 
-    /**
-     * Core Transactional Method to handle incoming shipments.
-     */
-    @Transactional
+    @Override
     public InventoryResponseDTO processIncomingShipment(ReceivingRequestDTO request) {
-
-        // Step 1: Validate and Fetch the Product profile from the master catalog
         Product product = productRepository.findById(request.getProductId())
                 .orElseThrow(() -> new RuntimeException("Receiving Error: Product ID " + request.getProductId() + " does not exist in master catalog."));
 
-        // Step 2: Execute  algorithm to find a safe, available StorageBin
-        StorageBin targetBin = putawayService.findAvailableBin(
-                request.getWarehouseId(),
-                request.getQuantity(),
-                product
-        );
-
-        // Step 3: Check if this specific Product is already sitting inside this specific StorageBin
-        // We use a custom finder query from our repository
-        Optional<InventoryItem> existingInventoryOpt = inventoryRepository
-                .findByProductIdAndStorageBinId(product.getId(), targetBin.getId());
-
-        InventoryItem finalInventoryRecord;
-
-        if (existingInventoryOpt.isPresent()) {
-            // Scenario A: The product already exists in this bin. Update the existing count.
-            InventoryItem existingItem = existingInventoryOpt.get();
-            int newQuantity = existingItem.getQuantity() + request.getQuantity();
-            existingItem.setQuantity(newQuantity);
-
-            finalInventoryRecord = inventoryRepository.save(existingItem);
-        } else {
-            // Scenario B: This is a brand new product assignment for this bin. Create a new record.
-            InventoryItem newItem = new InventoryItem();
-            newItem.setProduct(product);
-            newItem.setStorageBin(targetBin);
-            newItem.setQuantity(request.getQuantity());
-
-            finalInventoryRecord = inventoryRepository.save(newItem);
+        List<StorageBin> allBins = storageBinRepository.findByWarehouseId(request.getWarehouseId());
+        if (allBins.isEmpty()) {
+            throw new RuntimeException("Receiving Error: No operational storage bins found mapped to Warehouse ID " + request.getWarehouseId());
         }
 
-        // Step 4: Map the saved entity details into a clean Response DTO to prevent infinite loop recursion crashes
-        InventoryResponseDTO response = new InventoryResponseDTO();
-        response.setId(finalInventoryRecord.getId());
-        response.setQuantity(finalInventoryRecord.getQuantity());
-        response.setProductId(product.getId());
-        response.setProductName(product.getName());
-        response.setBinCode(targetBin.getBinCode());
+        int remainingQuantityToPlace = fillAvailableBinsSequentially(allBins, product, request.getQuantity());
 
+        InventoryItem finalRecordSnapshot = inventoryRepository.findTopByProductIdOrderByIdDesc(product.getId())
+                .orElse(null);
+
+        if (remainingQuantityToPlace > 0) {
+            int totalStored = request.getQuantity() - remainingQuantityToPlace;
+            throw new StorageOverflowException(String.format(
+                "Warehouse Storage Overflow: Placed %d units successfully. Remaining quantity {%d} could not be stored because all valid matching storage bins are full.",
+                totalStored, remainingQuantityToPlace
+            ));
+        }
+
+        InventoryResponseDTO response = new InventoryResponseDTO();
+        if (finalRecordSnapshot != null) {
+            response.setId(finalRecordSnapshot.getId());
+            response.setQuantity(finalRecordSnapshot.getQuantity()); 
+            response.setProductId(product.getId());
+            response.setProductName(product.getName());
+            response.setBinCode(finalRecordSnapshot.getStorageBin().getBinCode());
+        }
         return response;
+    }
+
+    /**
+     * 🎯 THE COMPLIANT CATEGORY-LOCKED SEQUENTIAL FILL METHOD
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int fillAvailableBinsSequentially(List<StorageBin> allBins, Product product, int initialQuantity) {
+        int remainingToPlace = initialQuantity;
+
+        for (StorageBin bin : allBins) {
+            if (remainingToPlace <= 0) break;
+
+            // 🎯 CRITICAL CATEGORY ENFORCEMENT CHECK:
+            // Compare product category with the bin's explicitly allowed category layout constraints.
+            // If they do not match, skip this bin immediately to prevent item co-mingling contamination!
+            if (bin.getAllowedCategory() != null && 
+                !bin.getAllowedCategory().trim().toUpperCase().equals(product.getCategory().trim().toUpperCase())) {
+                continue; 
+            }
+
+            // 1. Look up if an explicit placeholder allocation row already exists for this product in this bin
+            Optional<InventoryItem> existingInventoryOpt = inventoryRepository
+                    .findByProductIdAndStorageBinId(product.getId(), bin.getId());
+
+            // Fixed Rule Lock: If no pre-assigned row exists, skip this bin entirely.
+            if (existingInventoryOpt.isEmpty()) {
+                continue;
+            }
+
+            InventoryItem existingItem = existingInventoryOpt.get();
+            int currentBinQuantity = existingItem.getQuantity();
+
+            int availableSpaceInBin = maxBinCapacity - currentBinQuantity;
+            if (availableSpaceInBin <= 0) continue; 
+
+            int quantityToPlaceInThisBin = Math.min(remainingToPlace, availableSpaceInBin);
+
+            // 2. Perform clean data update operation on the matching row
+            existingItem.setQuantity(currentBinQuantity + quantityToPlaceInThisBin);
+            inventoryRepository.save(existingItem);
+
+            remainingToPlace -= quantityToPlaceInThisBin;
+        }
+        return remainingToPlace;
     }
 }
