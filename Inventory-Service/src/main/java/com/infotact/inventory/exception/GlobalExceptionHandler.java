@@ -74,4 +74,15 @@ public ResponseEntity<Map<String, String>> handleInsufficientStock(
                 .status(HttpStatus.BAD_REQUEST) // 🎯 Forces a proper 400 status code
                 .body(ex.getMessage());
     }
+    
+    
+    @ExceptionHandler(StorageOverflowException.class)
+    public ResponseEntity<Map<String, Object>> handleStorageOverflow(StorageOverflowException ex) {
+        Map<String, Object> errorBody = new HashMap<>();
+        errorBody.put("error", ex.getMessage());
+        errorBody.put("status", HttpStatus.BAD_REQUEST.value());
+        
+        // This structural layout maps exactly to what your Axios catch block looks for!
+        return new ResponseEntity<>(errorBody, HttpStatus.BAD_REQUEST);
+    }
 }

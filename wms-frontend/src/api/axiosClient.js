@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-// 1. Central network client instance configuration
 const axiosClient = axios.create({
     baseURL: 'http://localhost:8081', 
     timeout: 5000,                    
@@ -10,7 +9,6 @@ const axiosClient = axios.create({
     }
 });
 
-// 2. Request Interceptor: Inject bearer token string dynamically on every single outbound network request
 axiosClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -19,20 +17,16 @@ axiosClient.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
-// 🎯 Inject Elegant Custom Alert Notification to replacing blocking alert boxes
+// Styled UI Popup banner for Global System Failures
 const showDesignedSecurityAlert = (title, message, isWarning = true) => {
-    // Check if an alert element already exists on screen to avoid stacking duplicates
     if (document.getElementById('wms-custom-alert')) return;
 
     const alertDiv = document.createElement('div');
     alertDiv.id = 'wms-custom-alert';
     
-    // Inline CSS for a professional, centered security card popup
     Object.assign(alertDiv.style, {
         position: 'fixed',
         top: '30px',
@@ -44,13 +38,11 @@ const showDesignedSecurityAlert = (title, message, isWarning = true) => {
         padding: '16px 28px',
         borderRadius: '6px',
         boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-        zIndex: '10000',
+        zIndex: '20000',
         fontFamily: 'Arial, sans-serif',
         fontSize: '14px',
         textAlign: 'center',
-        minWidth: '320px',
-        transition: 'all 0.4s ease',
-        opacity: '0'
+        minWidth: '350px'
     });
 
     alertDiv.innerHTML = `
@@ -60,62 +52,49 @@ const showDesignedSecurityAlert = (title, message, isWarning = true) => {
 
     document.body.appendChild(alertDiv);
 
-    // Fade in effect animation
-    setTimeout(() => { alertDiv.style.opacity = '1'; }, 10);
-
-    // Automatically remove after 3 seconds
     setTimeout(() => {
-        alertDiv.style.opacity = '0';
-        setTimeout(() => alertDiv.remove(), 400);
-    }, 3000);
+        alertDiv.remove();
+    }, 4500);
 };
 
-// 🎯 3. Optimized Response Interceptor
+// 🎯 RESPONSE INTERCEPTOR: Differentiates Server Responses from Infrastructure Dropouts
 axiosClient.interceptors.response.use(
-    (response) => {
-        return response;
-    },
+    (response) => response,
     (error) => {
-        if (error.response) {
-            const { status, data } = error.response;
-            const backendMessage = data && data.message ? data.message : '';
+        // 🚨 PROBLEM 1 FIX: If error.response is missing, the server is dead/inactive!
+        if (!error.response) {
+            showDesignedSecurityAlert(
+                "Network Infrastructure Error", 
+                "Cannot connect to Spring Boot server. Verify your backend service is running on port 8081.", 
+                false
+            );
+            return Promise.reject(new Error("Server Is Inactive"));
+        }
 
-            // Helper function to handle full session invalidation on the frontend side
-            const forceImmediateLogout = (alertTitle, alertContent, isWarningStyle) => {
-                showDesignedSecurityAlert(alertTitle, alertContent, isWarningStyle);
-                
-                // Clear the corrupted or expired token from disk storage immediately
-                localStorage.removeItem('token'); 
-                
-                // Wait exactly 2.5 seconds for the custom alert to be seen before forcing redirect
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 2500);
-            };
+        const { status, data } = error.response;
+        const backendMessage = data && data.error ? data.error : (data && data.message ? data.message : '');
 
-            switch (status) {
-                case 401:
-                    // 🛑 Stale/Missing Credentials -> Session is fully expired, force a login reload
-                    forceImmediateLogout(
-                        "Session Expired (HTTP 401)", 
-                        backendMessage || "Your token credentials are invalid. Returning to login screen.",
-                        true
-                    );
-                    break;
+        switch (status) {
+            case 401:
+                localStorage.removeItem('token');
+                showDesignedSecurityAlert("Session Expired", "Returning to login.", true);
+                setTimeout(() => { window.location.href = '/'; }, 2000);
+                break;
 
-                case 403:
-                    // 🚫 Roles/Privileges Mismatch (e.g. OPERATOR vs ROLE_OPERATOR role issues)
-                    // 🎯 THE OPTIMIZATION: Print the warning to the console, but DO NOT drop the session context 
-                    // or force logouts. Let the operational table components catch the error naturally.
-                    console.warn("Access Forbidden (HTTP 403): User doesn't possess required role authorities for this dataset layout.");
-                    break;
+            case 400:
+            case 422:
+                // 🎯 THE PASSTHROUGH FIX: Remove the vanishing showDesignedSecurityAlert popup.
+				// Instead, log it to the console and let it reject naturally.
+				// This delivers the {"error": "Warehouse Storage Overflow..."} payload directly into your component's catch block!
+				console.warn(`Validation Challenge (${status}): Forwarding error attributes down to active UI panels.`);
+                break;
 
-                default:
-                    // Pass common statuses (like 400 bad requests) back to operational component logs
-                    break;
-            }
-        } else {
-            console.error("Network infrastructure connection dropped:", error.message);
+            case 403:
+                console.warn("Access Forbidden (403).");
+                break;
+
+            default:
+                break;
         }
 
         return Promise.reject(error);

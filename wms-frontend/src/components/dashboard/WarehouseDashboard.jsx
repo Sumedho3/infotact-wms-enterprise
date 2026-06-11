@@ -3,6 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import axiosClient from '../../api/axiosClient'; 
 import BarcodeScanner from './BarcodeScanner';
 import OrderFulfillment from './OrderFulfillment';
+import AdminManagementConsole from './AdminManagementConsole';
 
 /**
  * Dynamic Location Formatter
@@ -30,6 +31,40 @@ const formatBinLocation = (binCode) => {
 };
 
 /**
+ * 🎯 INVENTORY STATUS RENDERING
+ * Evaluates ONLY the specific inventory line's isolated item volume.
+ */
+const renderInventoryStatus = (quantity) => {
+    if (quantity === undefined || quantity === null || quantity === 0) {
+        return <span style={styles.statusBadgeRed}>OUT OF STOCK</span>;
+    }
+    if (quantity <= 10) {
+        return <span style={styles.statusBadgeBlue}>LOW STOCK</span>;
+    }
+    return <span style={styles.statusBadgeGreen}>OPTIMAL</span>;
+};
+
+/**
+ * 🎯 STORAGE BIN METRIC STATUS RENDERING
+ * Evaluates total physical material allocation across all rows sharing the same space.
+ * Automatically flips status to ALMOST FULL when remaining space drops to 10 units or less.
+ */
+const renderBinStatus = (totalBinStock, maxCapacity = 100) => {
+    const spaceRemaining = maxCapacity - totalBinStock;
+
+    if (totalBinStock >= maxCapacity) {
+        return <span style={{ ...styles.statusBadgeRed, backgroundColor: '#dc3545', color: '#ffffff', borderColor: '#bd2130' }}>FULL</span>;
+    }
+    if (spaceRemaining <= 10 && totalBinStock > 0) {
+        return <span style={{ ...styles.statusBadgeYellow, backgroundColor: '#ffc107', color: '#212529', borderColor: '#e0a800' }}>ALMOST FULL</span>;
+    }
+    if (totalBinStock > 0) {
+        return <span style={styles.statusBadgeGreen}>OPTIMAL</span>;
+    }
+    return <span style={{ ...styles.statusBadgeBlue, backgroundColor: '#e9ecef', color: '#495057', borderColor: '#ced4da' }}>EMPTY</span>;
+};
+
+/**
  * WarehouseDashboard Component
  * Provides a production-grade operational layout workspace for tracking inventory metrics.
  */
@@ -42,10 +77,14 @@ const WarehouseDashboard = () => {
     const [loading, setLoading] = useState(true);          
     const [fetchError, setFetchError] = useState('');      
     
-    // 🎯 NEW STATE: Dynamic Visibility Control for Out-of-Stock Manifest Modal
+    // Visibility Control for Out-of-Stock Manifest Modal
     const [exceptionModalOpen, setExceptionModalOpen] = useState(false);
 
-    // Strict initialization with empty values (Zero Hardcoding)
+    // Tracking dynamic manual-close inbound overflow popups
+    const [receivingErrorVisible, setReceivingErrorVisible] = useState(false);
+    const [receivingErrorMessage, setReceivingErrorMessage] = useState('');
+
+    // User Session Profile Context
     const [userProfile, setUserProfile] = useState({
         username: '',
         role: '',
@@ -53,14 +92,19 @@ const WarehouseDashboard = () => {
         warehouseId: null
     });
 
+    // Helper utility to calculate total stock volume in a single unique bin
+    const getBinTotalStock = (binCode) => {
+        if (!binCode) return 0;
+        return inventoryItems
+            .filter(item => item.storageBin?.binCode === binCode)
+            .reduce((sum, item) => sum + (item.quantity || 0), 0);
+    };
+
     // Isolated data-refresh handler for post-transaction mutations
     const refreshInventoryData = async () => {
         try {
             const inventoryResponse = await axiosClient.get('/api/inventory');
-            
-            // Explicitly sort live database records by Inventory Item ID Ascending
             const sortedItems = inventoryResponse.data.sort((a, b) => a.id - b.id);
-            
             setInventoryItems(sortedItems);
             setTotalProducts(sortedItems.length); 
             setFetchError('');
@@ -75,26 +119,37 @@ const WarehouseDashboard = () => {
             setLoading(true);
             setFetchError('');
 
-            try {
-				const profileResponse = await axiosClient.get('/api/users/me');
-				console.log("Active Login Data Payload:", profileResponse.data);
+            // 📍 Locate this section inside initializeDashboardData (around line 97)
+		try {
+			const profileResponse = await axiosClient.get('/api/users/me');
+			console.log("Active Login Data Payload:", profileResponse.data);
 
-				setUserProfile({
-					username: profileResponse.data.username,
-					role: profileResponse.data.role,
-					warehouseLocation: profileResponse.data.warehouseLocation || 'Bhiwandi, Mumbai',
-					warehouseId: profileResponse.data.warehouseId || profileResponse.data.warehouse_id || 1 
-				});
-			} catch (profileErr) {
-				console.error("Critical Profile Sync Failure:", profileErr);
-				setUserProfile({
-					username: 'Unknown User',
-					role: 'UNKNOWN',
-					warehouseLocation: 'Unsynchronized Facility',
-					warehouseId: null
-				});
-				setFetchError('Unable to verify user session profile assignment parameters.');
-			}
+			// 🎯 THE MAP REFACTOR: Extract name and location variables cleanly
+			const facilityName = profileResponse.data.warehouseName || '';
+			const facilityLoc = profileResponse.data.warehouseLocation || '';
+
+			setUserProfile({
+				username: profileResponse.data.username,
+				role: profileResponse.data.role,
+				
+				// Assemble the format: Name <Address Location>
+				// Fallback safely if a floating administrator doesn't have a linked warehouse row
+				warehouseDisplay: facilityName && facilityLoc 
+					? `${facilityName} (${facilityLoc})` 
+					: facilityLoc || 'Bhiwandi Logistics Hub <Bhiwandi, Mumbai>',
+					
+				warehouseId: profileResponse.data.warehouseId || profileResponse.data.warehouse_id || null 
+			});
+		} catch (profileErr) {
+			console.error("Critical Profile Sync Failure:", profileErr);
+			setUserProfile({
+				username: 'Unknown User',
+				role: 'UNKNOWN',
+				warehouseDisplay: 'Unsynchronized Facility <Global Operational Scope>',
+				warehouseId: null
+			});
+			setFetchError('Unable to verify user session profile assignment parameters.');
+		}
 
             await refreshInventoryData();
             setLoading(false);
@@ -126,13 +181,16 @@ const WarehouseDashboard = () => {
 
         try {
             await axiosClient.post('/api/receiving/process', receivingPayload);
-            await refreshInventoryData();
+            await refreshInventoryData(); 
         } catch (err) {
-            console.error("Failed to process dynamic inventory placement operation:", err);
+            console.error("Failed to process dynamic inventory placement", err);
+            await refreshInventoryData(); 
+            const backendErrorString = err.response?.data?.error || "Inbound operation encountered a processing exception.";
+            setReceivingErrorMessage(backendErrorString);
+            setReceivingErrorVisible(true);
         }
     };
 
-    // Calculate active exceptions count (items running completely out of stock)
     const activeAlertsCount = inventoryItems.filter(item => item.quantity === 0).length;
 
     return (
@@ -142,11 +200,13 @@ const WarehouseDashboard = () => {
                 <div style={styles.branding}>
                     <h1 style={styles.title}>WMS Enterprise Workspace</h1>
                     <p style={styles.subtitle}>
-                        Logged in as: <strong>{userProfile.username || 'Syncing...'}</strong> (<span style={styles.roleBadge}>{userProfile.role || 'N/A'}</span>)
-                        <span style={styles.locationBadge}>
-                            📍 {userProfile.warehouseLocation || 'Loading Location...'}
-                        </span>
-                    </p>
+						Logged in as: <strong>{userProfile.username || 'Syncing...'}</strong> (<span style={styles.roleBadge}>{userProfile.role || 'N/A'}</span>)
+						
+						{/* 🎯 THE FORMAT UPDATE CELL */}
+						<span style={styles.locationBadge}>
+							📍 {userProfile.warehouseDisplay || 'Loading Location...'}
+						</span>
+					</p>
                 </div>
                 <button onClick={logoutService} style={styles.logoutBtn}>
                     Secure Log Out
@@ -167,10 +227,11 @@ const WarehouseDashboard = () => {
                 
                 <div style={styles.metricCard}>
                     <h3 style={styles.metricLabel}>Active Storage Bins</h3>
-                    <p style={{ ...styles.metricCount, color: '#28a745' }}>{inventoryItems.length} Bins</p>
+                    <p style={{ ...styles.metricCount, color: '#28a745' }}>
+                        {new Set(inventoryItems.map(item => item.storageBin?.binCode).filter(Boolean)).size} Bins
+                    </p>
                 </div>
 
-                {/* 🎯 REFACTOR 2: Interactive, Clickable Exceptions Center Card with State-Driven Styles */}
                 <div 
                     onClick={() => {
                         if (activeAlertsCount > 0) {
@@ -221,63 +282,74 @@ const WarehouseDashboard = () => {
                 {loading ? (
                     <div style={styles.loadingText}>Fetching database state rows...</div>
                 ) : (
-                    <table style={styles.table}>
-                        <thead>
-                            <tr style={styles.thRow}>
-                                <th style={styles.th}>Inventory ID</th> 
-                                <th style={styles.th}>Product ID</th>
-                                <th style={styles.th}>SKU Code</th>
-                                <th style={styles.th}>Bin Location</th>
-                                <th style={styles.th}>Current Stock</th>
-                                <th style={styles.th}>Fulfillment Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {inventoryItems.length === 0 ? (
-                                <tr>
-                                    <td colSpan="6" style={{ ...styles.td, textAlign: 'center', color: '#6c757d' }}>
-                                        No active inventory entries found in database records.
-                                    </td>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={styles.table}>
+                            <thead>
+                                <tr style={styles.thRow}>
+                                    {/* 🎯 CENTERED TH HEADERS FOR TARGETED COLUMNS */}
+                                    <th style={{ ...styles.th, textAlign: 'center' }}>Product ID</th>
+                                    <th style={styles.th}>SKU Code</th>
+                                    <th style={{ ...styles.th, textAlign: 'center' }}>Storage Bin ID</th>
+                                    <th style={{ ...styles.th, textAlign: 'center' }}>Warehouse ID</th>
+                                    <th style={styles.th}>Bin Location</th>
+                                    <th style={{ ...styles.th, textAlign: 'center' }}>Current Stock</th>
+                                    <th style={{ ...styles.th, textAlign: 'center' }}>Inventory Status</th>
+                                    <th style={{ ...styles.th, textAlign: 'center' }}>Space Remaining</th>
+                                    <th style={{ ...styles.th, textAlign: 'center' }}>Storage Bin Status</th>
                                 </tr>
-                            ) : (
-                                inventoryItems.map((item) => (
-                                    <tr key={item.id} style={styles.tr}>
-                                        <td style={styles.td}>#{item.id}</td>
-                                        <td style={{ ...styles.td, color: '#6c757d' }}>
-                                            {item.product?.id || 'N/A'}
+                            </thead>
+                            <tbody>
+                                {inventoryItems.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="9" style={{ ...styles.td, textAlign: 'center', color: '#6c757d' }}>
+                                            No active inventory entries found in database records.
                                         </td>
-                                        <td style={styles.td}>
-                                            <strong style={{ fontFamily: 'Courier New, monospace' }}>
-                                                {item.product?.sku || 'N/A'}
-                                            </strong>
-                                        </td>
-                                        <td style={styles.td}>
-                                            formatBinLocation(item.storageBin?.binCode)
-                                        </td>
-                                        <td style={styles.td}>
-                                            {item.quantity !== undefined ? `${item.quantity} Units` : '0 Units'}
-                                        </td>
-                                        <td style={styles.td}>
-											<span style={
-												item.quantity === 0 
-													? styles.statusBadgeRed 
-													: item.quantity > 10 
-														? styles.statusBadgeGreen 
-														: styles.statusBadgeBlue
-											}>
-												{item.quantity === 0 
-													? 'OUT OF STOCK' 
-													: item.quantity > 10 
-														? 'OPTIMAL' 
-														: 'LOW STOCK'
-												}
-											</span>
-										</td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                ) : (
+                                    inventoryItems.map((item) => {
+                                        const totalBinStock = getBinTotalStock(item.storageBin?.binCode);
+                                        const spaceRemaining = Math.max(0, 100 - totalBinStock);
+                                        const displayWarehouseId = item.storageBin?.warehouseId || 'N/A';
+
+                                        return (
+                                            <tr key={item.id} style={styles.tr}>
+                                                {/* 🎯 CENTERED DATA CELLS FOR THE REQUESTED PARAMETERS */}
+                                                <td style={{ ...styles.td, textAlign: 'center', color: '#6c757d' }}>
+                                                    {item.product?.id || 'N/A'}
+                                                </td>
+                                                <td style={styles.td}>
+                                                    <strong style={{ fontFamily: 'Courier New, monospace' }}>
+                                                        {item.product?.sku || 'N/A'}
+                                                    </strong>
+                                                </td>
+                                                <td style={{ ...styles.td, textAlign: 'center', fontWeight: 'bold', color: '#495057' }}>
+                                                    {item.storageBin?.id ? `#${item.storageBin.id}` : 'N/A'}
+                                                </td>
+                                                <td style={{ ...styles.td, textAlign: 'center', fontWeight: 'bold', color: '#495057' }}>
+                                                    {displayWarehouseId}
+                                                </td>
+                                                <td style={styles.td}>
+                                                    {formatBinLocation(item.storageBin?.binCode)}
+                                                </td>
+                                                <td style={{ ...styles.td, textAlign: 'center' }}>
+                                                    {item.quantity !== undefined ? `${item.quantity} Units` : '0 Units'}
+                                                </td>
+                                                <td style={{ ...styles.td, textAlign: 'center' }}>
+                                                    {renderInventoryStatus(item.quantity)}
+                                                </td>
+                                                <td style={{ ...styles.td, textAlign: 'center', fontWeight: '600', color: spaceRemaining === 0 ? '#dc3545' : '#28a745' }}>
+                                                    {spaceRemaining} Units
+                                                </td>
+                                                <td style={{ ...styles.td, textAlign: 'center' }}>
+                                                    {renderBinStatus(totalBinStock)}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </section>
             
@@ -286,7 +358,12 @@ const WarehouseDashboard = () => {
 				userProfile={userProfile} 
 			/>
 
-            {/* 🎯 NEW DESCRIPTIVE POP-UP MODAL OVERLAY: Lists comprehensive depletion metadata records */}
+            {userProfile.role === 'ADMIN' && (
+                <AdminManagementConsole onConfigurationChanged={refreshInventoryData} />
+				)
+			}
+
+            {/* POP-UP MODAL OVERLAY */}
             {exceptionModalOpen && (
                 <div style={dashboardModalStyles.overlay}>
                     <div style={dashboardModalStyles.card}>
@@ -329,13 +406,36 @@ const WarehouseDashboard = () => {
                     </div>
                 </div>
             )}
+
+            {/* POP-UP OVERLAY */}
+            {receivingErrorVisible && (
+                <div style={inlineModalStyles.overlay}>
+                    <div style={inlineModalStyles.card}>
+                        <div style={inlineModalStyles.header}>
+                            ⚠️ Inbound Processing Alert
+                        </div>
+                        <div style={inlineModalStyles.body}>
+                            {receivingErrorMessage}
+                        </div>
+                        <div style={inlineModalStyles.footer}>
+                            <button 
+                                type="button" 
+                                onClick={() => setReceivingErrorVisible(false)}
+                                style={inlineModalStyles.okBtn}
+                            >
+                                OK
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
-// Original Base Core Style Sheets Context Matrix
+// Style Sheets Context Matrix
 const styles = {
-    dashboardContainer: { padding: '30px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif', backgroundColor: '#f8f9fa', minHeight: '100vh', boxSizing: 'border-box' },
+    dashboardContainer: { padding: '30px', maxWidth: '100%', margin: '0 auto', fontFamily: 'Arial, sans-serif', backgroundColor: '#f8f9fa', minHeight: '100vh', boxSizing: 'border-box' },
     header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #e9ecef', paddingBottom: '20px', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
     branding: { textAlign: 'left' },
     title: { margin: 0, fontSize: '28px', color: '#212529' },
@@ -354,17 +454,17 @@ const styles = {
     statusDot: { width: '10px', height: '10px', borderRadius: '50%' },
     table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
     thRow: { backgroundColor: '#f1f3f5' },
-    th: { padding: '12px', borderBottom: '2px solid #dee2e6', color: '#495057', fontWeight: '600', fontSize: '14px' },
+    th: { padding: '12px', borderBottom: '2px solid #dee2e6', color: '#495057', fontWeight: '600', fontSize: '13px', whiteSpace: 'nowrap' },
     tr: { borderBottom: '1px solid #dee2e6', transition: 'background-color 0.2s' },
-    td: { padding: '14px 12px', color: '#212529', fontSize: '14px' },
-    statusBadgeGreen: { background: '#d4edda', color: '#155724', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' },
-    statusBadgeBlue: { background: '#e8f0fe', color: '#1a73e8', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' },
-	statusBadgeRed: { background: '#f8d7da', color: '#721c24', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold', border: '1px solid #f5c6cb' },
+    td: { padding: '14px 12px', color: '#212529', fontSize: '13px' },
+    statusBadgeGreen: { background: '#d4edda', color: '#155724', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', border: '1px solid #c3e6cb', display: 'inline-block' },
+    statusBadgeBlue: { background: '#e8f0fe', color: '#1a73e8', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', border: '1px solid #b1d4fe', display: 'inline-block' },
+	statusBadgeRed: { background: '#f8d7da', color: '#721c24', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', border: '1px solid #f5c6cb', display: 'inline-block' },
+	statusBadgeYellow: { padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', border: '1px solid #ffeeba', display: 'inline-block' },
     loadingText: { padding: '30px', textAlign: 'center', color: '#007bff', fontWeight: 'bold', fontSize: '15px' },
     errorText: { padding: '10px', background: '#f8d7da', color: '#721c24', borderRadius: '4px', marginBottom: '15px', fontSize: '14px', textAlign: 'center', border: '1px solid #f5c6cb' }
 };
 
-// 🎯 NEW STYLES: Dedicated Modal Overlay Styles CSS Matrix
 const dashboardModalStyles = {
     overlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 11000 },
     card: { background: '#ffffff', width: '90%', maxWidth: '550px', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.25)', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
@@ -375,6 +475,15 @@ const dashboardModalStyles = {
     dangerBadge: { position: 'absolute', right: '15px', top: '50%', transform: 'translateY(-50%)', backgroundColor: '#f8d7da', color: '#721c24', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', border: '1px solid #f5c6cb' },
     footer: { padding: '14px 20px', background: '#f8f9fa', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'flex-end' },
     closeBtn: { background: '#dc3545', color: '#ffffff', border: 'none', padding: '9px 22px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', transition: 'background-color 0.2s' }
+};
+
+const inlineModalStyles = {
+    overlay: { position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 12000 },
+    card: { background: '#ffffff', minWidth: '380px', maxWidth: '520px', borderRadius: '6px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)', overflow: 'hidden', display: 'flex', flexDirection: 'column' },
+    header: { background: '#fff3cd', color: '#856404', padding: '16px 20px', fontWeight: 'bold', fontSize: '16px', borderBottom: '1px solid #ffeeba', textAlign: 'left' },
+    body: { padding: '22px 20px', color: '#721c24', fontSize: '14px', textAlign: 'left', backgroundColor: '#fffdf5', lineHeight: '1.5', fontWeight: '500' },
+    footer: { padding: '12px 20px', background: '#f8f9fa', borderTop: '1px solid #dee2e6', display: 'flex', justifyContent: 'flex-end' },
+    okBtn: { background: '#856404', color: '#ffffff', border: 'none', padding: '8px 24px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }
 };
 
 export default WarehouseDashboard;

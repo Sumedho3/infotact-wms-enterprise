@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.infotact.inventory.dto.InventoryRequestDTO;
 import com.infotact.inventory.dto.InventoryResponseDTO;
+import com.infotact.inventory.dto.InventoryResponsedto2;
 import com.infotact.inventory.entity.InventoryItem;
 import com.infotact.inventory.repository.InventoryItemRepository;
 import com.infotact.inventory.service.InventoryItemService;
@@ -46,5 +47,5 @@ public class InventoryItemController {
 	}
 
     @GetMapping
-    public List<InventoryItem> getAll() { return repository.findAll(); }
+    public List<InventoryResponsedto2> getAll() { return service.getItems(); }
 }
