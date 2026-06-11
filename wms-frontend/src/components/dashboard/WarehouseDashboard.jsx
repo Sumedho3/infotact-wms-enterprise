@@ -4,6 +4,7 @@ import axiosClient from '../../api/axiosClient';
 import BarcodeScanner from './BarcodeScanner';
 import OrderFulfillment from './OrderFulfillment';
 import AdminManagementConsole from './AdminManagementConsole';
+import OrderCreationConsole from './OrderCreationConsole';
 
 /**
  * Dynamic Location Formatter
@@ -217,6 +218,7 @@ const WarehouseDashboard = () => {
                 onTransferToDock={handleProcessInventoryPlacement} 
                 activeWarehouseLocation={userProfile.warehouseLocation}
             />
+			
 
             {/* Metrics Counter Rows */}
             <section style={styles.metricsGrid}>
@@ -352,6 +354,8 @@ const WarehouseDashboard = () => {
                     </div>
                 )}
             </section>
+			
+			<OrderCreationConsole onOrderStagedSuccessfully={refreshInventoryData} />
             
             <OrderFulfillment 
 				onOrderPacked={refreshInventoryData} 
