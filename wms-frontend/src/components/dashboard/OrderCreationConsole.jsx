@@ -258,7 +258,7 @@ const OrderCreationConsole = ({ onOrderStagedSuccessfully }) => {
                                     <div style={panelStyles.qtyBadge}>{item.quantity} Units</div>
                                     <button 
                                         type="button" 
-                                        onClick={() => handleRemoveCartRow(index)}
+                                        onClick={() => handleRemoveCartRow(idx)}
                                         style={panelStyles.removeRowBtn}
                                     >
                                         ❌
